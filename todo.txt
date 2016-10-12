@@ -1,0 +1,1 @@
+check filter weight initiation - currently initiated as normal weights in alexnet, but perhaps should be initiated similarly to bias initiaion
