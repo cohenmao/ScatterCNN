@@ -3,6 +3,7 @@ sys.path.append('./lib')
 import theano
 theano.config.on_unused_input = 'warn'
 import theano.tensor as T
+from theano.sandbox.cuda import dnn
 
 import numpy as np
 
@@ -169,101 +170,74 @@ class WaveNet(object):
             layer1_input = x
 
         convpool_layer1 = FilterBankConvPoolLayer(input=layer1_input,
-                                        image_shape=(3, 227, 227, batch_size),
-                                        filter_bank=filter_bank,
-                                        filter_shape=(3, 64, 64, 30),
-                                        convstride=1, padsize=0, group=1,
-                                        poolsize=3, poolstride=1,
-                                        bias_init=0.0, lrn=True,
-                                        lib_conv=lib_conv,
-                                        )
+                                                  input_scales=3*[0],
+                                                  image_shape=(3, 227, 227, batch_size),
+                                                  filter_bank=filter_bank,
+                                                  filter_scales=6*[5]+6*[4]+6*[3]+6*[2]+6*[1],  # reverse?
+                                                  filter_shape=(3, 64, 64, 30),
+                                                  convstride=1, padsize=32, group=1,
+                                                  poolsize=3, poolstride=2,
+                                                  bias_init=0.0, lrn=True,
+                                                  lib_conv=lib_conv,
+                                                  )
         self.layers.append(convpool_layer1)
         params += convpool_layer1.params
         weight_types += convpool_layer1.weight_type
 
         convpool_layer2 = FilterBankConvPoolLayer(input=convpool_layer1.output,
-                                        image_shape=(30, 163, 163, batch_size),
-                                        filter_bank=filter_bank,
-                                        filter_shape=(30, 64, 64, 30),
-                                        convstride=1, padsize=0, group=1,
-                                        poolsize=3, poolstride=1,
-                                        bias_init=0.1, lrn=True,
-                                        lib_conv=lib_conv,
-                                        )
+                                                  input_scales=convpool_layer1.output_scales,
+                                                  image_shape=(30, 113, 113, batch_size),
+                                                  filter_bank=filter_bank,
+                                                  filter_scales=6*[5]+6*[4]+6*[3]+6*[2]+6*[1],  # reverse?
+                                                  filter_shape=(30, 64, 64, 360),
+                                                  convstride=9, padsize=32, group=1,
+                                                  poolsize=4, poolstride=3,
+                                                  bias_init=0.1, lrn=True,
+                                                  lib_conv=lib_conv,
+                                                  )
         self.layers.append(convpool_layer2)
         params += convpool_layer2.params
         weight_types += convpool_layer2.weight_type
-
-        convpool_layer3 = FilterBankConvPoolLayer(input=convpool_layer2.output,
-                                        image_shape=(256, 13, 13, batch_size),
-                                        filter_shape=(256, 3, 3, 384),
-                                        convstride=1, padsize=1, group=1,
-                                        poolsize=1, poolstride=0,
-                                        bias_init=0.0, lrn=False,
-                                        lib_conv=lib_conv,
+        fc_layer3_input = T.concatenate([T.flatten(convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2),
+                          T.flatten(
+                              dnn.dnn_pool(convpool_layer1.output, ws=(9, 9), stride=(3, 3)).dimshuffle(3, 0, 1, 2), 2
+                          )
+                                         ]
                                         )
-        self.layers.append(convpool_layer3)
-        params += convpool_layer3.params
-        weight_types += convpool_layer3.weight_type
+        # fc_layer3_input = T.flatten(
+        #     convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2)
+        # 5760 = 4*4*360 (360-num feature maps in last layer, 4*4-response size)
+        fc_layer3 = FCLayer(input=fc_layer3_input, n_in=4*4*360, n_out=2560)
+        self.layers.append(fc_layer3)
+        params += fc_layer3.params
+        weight_types += fc_layer3.weight_type
 
-        convpool_layer4 = FilterBankConvPoolLayer(input=convpool_layer3.output,
-                                        image_shape=(384, 13, 13, batch_size),
-                                        filter_shape=(384, 3, 3, 384),
-                                        convstride=1, padsize=1, group=2,
-                                        poolsize=1, poolstride=0,
-                                        bias_init=0.1, lrn=False,
-                                        lib_conv=lib_conv,
-                                        )
-        self.layers.append(convpool_layer4)
-        params += convpool_layer4.params
-        weight_types += convpool_layer4.weight_type
+        dropout_layer3 = DropoutLayer(fc_layer3.output, n_in=2560, n_out=2560)
 
-        convpool_layer5 = FilterBankConvPoolLayer(input=convpool_layer4.output,
-                                        image_shape=(384, 13, 13, batch_size),
-                                        filter_shape=(384, 3, 3, 256),
-                                        convstride=1, padsize=1, group=2,
-                                        poolsize=3, poolstride=2,
-                                        bias_init=0.0, lrn=False,
-                                        lib_conv=lib_conv,
-                                        )
-        self.layers.append(convpool_layer5)
-        params += convpool_layer5.params
-        weight_types += convpool_layer5.weight_type
+        fc_layer4 = FCLayer(input=dropout_layer3.output, n_in=2560, n_out=2560)
+        self.layers.append(fc_layer4)
+        params += fc_layer4.params
+        weight_types += fc_layer4.weight_type
 
-        fc_layer6_input = T.flatten(
-            convpool_layer5.output.dimshuffle(3, 0, 1, 2), 2)
-        fc_layer6 = FCLayer(input=fc_layer6_input, n_in=9216, n_out=4096)
-        self.layers.append(fc_layer6)
-        params += fc_layer6.params
-        weight_types += fc_layer6.weight_type
+        dropout_layer4 = DropoutLayer(fc_layer4.output, n_in=2560, n_out=2560)
 
-        dropout_layer6 = DropoutLayer(fc_layer6.output, n_in=4096, n_out=4096)
-
-        fc_layer7 = FCLayer(input=dropout_layer6.output, n_in=4096, n_out=4096)
-        self.layers.append(fc_layer7)
-        params += fc_layer7.params
-        weight_types += fc_layer7.weight_type
-
-        dropout_layer7 = DropoutLayer(fc_layer7.output, n_in=4096, n_out=4096)
-
-        softmax_layer8 = SoftmaxLayer(
-            input=dropout_layer7.output, n_in=4096, n_out=30)  # Maoz: 1000
-        self.layers.append(softmax_layer8)
-        params += softmax_layer8.params
-        weight_types += softmax_layer8.weight_type
+        softmax_layer5 = SoftmaxLayer(
+            input=dropout_layer4.output, n_in=2560, n_out=30)
+        self.layers.append(softmax_layer5)
+        params += softmax_layer5.params
+        weight_types += softmax_layer5.weight_type
 
         # #################### NETWORK BUILT #######################
 
-        self.cost = softmax_layer8.negative_log_likelihood(y)
-        self.errors = softmax_layer8.errors(y)
-        self.errors_top_5 = softmax_layer8.errors_top_x(y, 5)
+        self.cost = softmax_layer5.negative_log_likelihood(y)
+        self.errors = softmax_layer5.errors(y)
+        self.errors_top_5 = softmax_layer5.errors_top_x(y, 5)
         self.params = params
         self.x = x
         self.y = y
         self.rand = rand
         self.weight_types = weight_types
         self.batch_size = batch_size
-
 
 
 def compile_models(model, config, flag_top_5=False):
