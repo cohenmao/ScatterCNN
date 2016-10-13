@@ -192,7 +192,7 @@ class FilterBankConvPoolLayer(object):
         # print image_shape_shuffled
         # print filter_shape_shuffled
         W_shuffled = self.weighted_filter_bank.val.dimshuffle(3, 0, 1, 2)  # c01b to bc01
-        conv_out_complex = progress_scatter_layer(input=input_shuffled,
+        conv_out_complex, output_scales = progress_scatter_layer(input=input_shuffled,
                                                   input_scales=self.input_scales,
                                                   filter_bank=W_shuffled,
                                                   filter_scales=filter_scales,
@@ -205,6 +205,7 @@ class FilterBankConvPoolLayer(object):
 
         # ReLu
         self.output = T.maximum(conv_out, 0)
+        self.output_scales
 
         # Pooling
         if self.poolsize != 1:
