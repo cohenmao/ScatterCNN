@@ -1,5 +1,5 @@
 import sys
-sys.path.append('./lib')
+sys.path.append('./alexnet/lib')
 import theano
 theano.config.on_unused_input = 'warn'
 import theano.tensor as T
@@ -139,14 +139,13 @@ class AlexNet(object):
 
 class WaveNet(object):
 
-    def __init__(self, config):
+    def __init__(self, config, filter_bank):
 
         self.config = config
 
         batch_size = config['batch_size']
         flag_datalayer = config['use_data_layer']
         lib_conv = config['lib_conv']
-        filter_bank=config['filter_bank']
         # ##################### BUILD NETWORK ##########################
         # allocate symbolic variables for the data
         # 'rand' is a random array used for random cropping/mirroring of data
@@ -172,14 +171,14 @@ class WaveNet(object):
         convpool_layer1 = FilterBankConvPoolLayer(input=layer1_input,
                                                   input_scales=3*[0],
                                                   image_shape=(3, 227, 227, batch_size),
-                                                  filter_bank=filter_bank,
-                                                  filter_scales=6*[5]+6*[4]+6*[3]+6*[2]+6*[1],  # reverse?
+                                                  filter_bank=filter_bank['data'],
+                                                  filter_scales=filter_bank['scale'],
                                                   filter_shape=(3, 64, 64, 30),
                                                   convstride=1, padsize=32, group=1,
                                                   poolsize=3, poolstride=2,
                                                   bias_init=0.0, lrn=True,
                                                   lib_conv=lib_conv,
-                                                  )
+                                                  )   # layer output shape: (30, 113, 113, batch_size)
         self.layers.append(convpool_layer1)
         params += convpool_layer1.params
         weight_types += convpool_layer1.weight_type
@@ -187,14 +186,14 @@ class WaveNet(object):
         convpool_layer2 = FilterBankConvPoolLayer(input=convpool_layer1.output,
                                                   input_scales=convpool_layer1.output_scales,
                                                   image_shape=(30, 113, 113, batch_size),
-                                                  filter_bank=filter_bank,
-                                                  filter_scales=6*[5]+6*[4]+6*[3]+6*[2]+6*[1],  # reverse?
+                                                  filter_bank=filter_bank['data'],
+                                                  filter_scales=filter_bank['scale'],
                                                   filter_shape=(30, 64, 64, 360),
                                                   convstride=9, padsize=32, group=1,
                                                   poolsize=4, poolstride=3,
                                                   bias_init=0.1, lrn=True,
                                                   lib_conv=lib_conv,
-                                                  )
+                                                  )  # layer output shape: (360, 4, 4, batch_size)
         self.layers.append(convpool_layer2)
         params += convpool_layer2.params
         weight_types += convpool_layer2.weight_type
