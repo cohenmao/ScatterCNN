@@ -198,14 +198,16 @@ class WaveNet(object):
         self.layers.append(convpool_layer2)
         params += convpool_layer2.params
         weight_types += convpool_layer2.weight_type
+        """
         fc_layer3_input = T.concatenate([T.flatten(convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2),
                           T.flatten(
                               dnn.dnn_pool(convpool_layer1.output, ws=(9, 9), stride=(3, 3)).dimshuffle(3, 0, 1, 2), 2
                           )
                                          ]
                                         )
-        # fc_layer3_input = T.flatten(
-        #     convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2)
+        """
+        fc_layer3_input = T.flatten(
+            convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2)
         # 5760 = 4*4*360 (360-num feature maps in last layer, 4*4-response size)
         fc_layer3 = FCLayer(input=fc_layer3_input, n_in=4*4*360, n_out=2560)
         self.layers.append(fc_layer3)
