@@ -5,6 +5,7 @@ resume_train: False
 load_epoch: 20
 
 # Learning Parameters
+wavenet: 1
 n_epochs: 60
 learning_rate: 0.01  # def:0.01
 lr_policy: step  # def: step or auto
@@ -27,6 +28,7 @@ momentum: 0.9 # def: 0.9
 weight_decay: 0.0005 # def: 0.0005
 
 # Directories
+filter_bank: /home/ubuntu/DL/Images/ImageNet/Output30/filters.pickle
 # label_folder: /scratch/ilsvrc12/labels/
 # mean_file: /scratch/ilsvrc12/misc/img_mean.npy
 # weights_dir: ./models/  # directory for saving weights and results
