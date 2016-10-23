@@ -351,7 +351,7 @@ if __name__ == '__main__':
         from proc_load import fun_load
         config['queue_l2t'] = Queue(1)
         config['queue_t2l'] = Queue(1)
-        if config['train_wavenet']:
+        if config['wavenet']:
             train_proc = Process(target=train_wavenet, args=(config,))
         else:
             train_proc = Process(target=train_net, args=(config,))
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         load_proc.join()
 
     else:
-        if config['train_wavenet']:
+        if config['wavenet']:
             train_proc = Process(target=train_wavenet, args=(config,))
         else:
             train_proc = Process(target=train_net, args=(config,))
