@@ -139,7 +139,7 @@ class AlexNet(object):
 
 class WaveNet(object):
 
-    def __init__(self, config, filter_bank):
+    def __init__(self, config):
 
         self.config = config
 
@@ -151,6 +151,8 @@ class WaveNet(object):
         # 'rand' is a random array used for random cropping/mirroring of data
         x = T.ftensor4('x')
         y = T.lvector('y')
+        filter_bank = T.ftensor3('filter_bank')
+        filter_scale = T.vector('filter_scale')
         rand = T.fvector('rand')
 
         print '... building the model'
@@ -171,8 +173,8 @@ class WaveNet(object):
         convpool_layer1 = FilterBankConvPoolLayer(input=layer1_input,
                                                   input_scales=3*[0],
                                                   image_shape=(3, 227, 227, batch_size),
-                                                  filter_bank=filter_bank['data'],
-                                                  filter_scales=filter_bank['scale'],
+                                                  filter_bank=filter_bank,
+                                                  filter_scales=filter_scale,
                                                   filter_shape=(3, 64, 64, 30),
                                                   convstride=1, padsize=32, group=1,
                                                   poolsize=3, poolstride=2,
@@ -186,8 +188,8 @@ class WaveNet(object):
         convpool_layer2 = FilterBankConvPoolLayer(input=convpool_layer1.output,
                                                   input_scales=convpool_layer1.output_scales,
                                                   image_shape=(30, 113, 113, batch_size),
-                                                  filter_bank=filter_bank['data'],
-                                                  filter_scales=filter_bank['scale'],
+                                                  filter_bank=filter_bank,
+                                                  filter_scales=filter_scale,
                                                   filter_shape=(30, 64, 64, 360),
                                                   convstride=9, padsize=32, group=1,
                                                   poolsize=4, poolstride=3,
