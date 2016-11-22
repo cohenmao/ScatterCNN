@@ -1,6 +1,8 @@
 import sys
 sys.path.append('./alexnet/lib')
 import theano
+theano.config.optimizer = 'None'
+theano.config.exception_verbosity = 'high'
 theano.config.on_unused_input = 'warn'
 import theano.tensor as T
 from theano.sandbox.cuda import dnn
@@ -152,7 +154,11 @@ class WaveNet(object):
         x = T.ftensor4('x')
         y = T.lvector('y')
         filter_bank = T.ftensor3('filter_bank')
-        filter_scale = T.vector('filter_scale')
+        filter_scale = T.fvector('filter_scale')
+        input_scale = T.fvector('input_scale')
+        #filter_bank = theano.shared(config['filter_bank'])
+        #filter_scale = theano.shared(np.array(config['filter_scale']))
+        #input_scale = theano.shared(np.zeros(3))
         rand = T.fvector('rand')
 
         print '... building the model'
@@ -171,27 +177,27 @@ class WaveNet(object):
             layer1_input = x
 
         convpool_layer1 = FilterBankConvPoolLayer(input=layer1_input,
-                                                  input_scales=3*[0],
+                                                  input_scales=input_scale,
                                                   image_shape=(3, 227, 227, batch_size),
                                                   filter_bank=filter_bank,
                                                   filter_scales=filter_scale,
-                                                  filter_shape=(3, 64, 64, 30),
-                                                  convstride=1, padsize=32, group=1,
+                                                  filter_shape=(30, 31, 31),
+                                                  convstride=1, padsize=15, group=1,
                                                   poolsize=3, poolstride=2,
                                                   bias_init=0.0, lrn=True,
                                                   lib_conv=lib_conv,
-                                                  )   # layer output shape: (30, 113, 113, batch_size)
+                                                  )   # layer output shape: (90, 113, 113, batch_size)
         self.layers.append(convpool_layer1)
         params += convpool_layer1.params
         weight_types += convpool_layer1.weight_type
 
         convpool_layer2 = FilterBankConvPoolLayer(input=convpool_layer1.output,
                                                   input_scales=convpool_layer1.output_scales,
-                                                  image_shape=(30, 113, 113, batch_size),
+                                                  image_shape=(90, 113, 113, batch_size),
                                                   filter_bank=filter_bank,
                                                   filter_scales=filter_scale,
-                                                  filter_shape=(30, 64, 64, 360),
-                                                  convstride=9, padsize=32, group=1,
+                                                  filter_shape=(30, 31, 31),
+                                                  convstride=9, padsize=15, group=1,
                                                   poolsize=4, poolstride=3,
                                                   bias_init=0.1, lrn=True,
                                                   lib_conv=lib_conv,
@@ -238,6 +244,9 @@ class WaveNet(object):
         self.params = params
         self.x = x
         self.y = y
+        self.filter_bank = filter_bank
+        self.filter_scale = filter_scale
+        self.input_scale = input_scale
         self.rand = rand
         self.weight_types = weight_types
         self.batch_size = batch_size
@@ -247,6 +256,10 @@ def compile_models(model, config, flag_top_5=False):
 
     x = model.x
     y = model.y
+    filter_bank = model.filter_bank
+    filter_scale = model.filter_scale
+    input_scale = model.input_scale
+
     rand = model.rand
     weight_types = model.weight_types
 
@@ -280,6 +293,10 @@ def compile_models(model, config, flag_top_5=False):
 
     rand_arr = theano.shared(np.zeros(3, dtype=theano.config.floatX),
                              borrow=True)
+
+    shared_filter_bank = theano.shared(config['filter_bank'], borrow=True)
+    shared_filter_scale = theano.shared(config['filter_scale'], borrow=True)
+    shared_input_scale = theano.shared(np.zeros(3, dtype=np.float32), borrow=True)
 
     vels = [theano.shared(param_i.get_value() * 0.)
             for param_i in params]
@@ -322,6 +339,9 @@ def compile_models(model, config, flag_top_5=False):
 
     train_model = theano.function([], cost, updates=updates,
                                   givens=[(x, shared_x), (y, shared_y),
+                                          (filter_bank, shared_filter_bank),
+                                          (filter_scale, shared_filter_scale),
+                                          (input_scale, shared_input_scale),
                                           (lr, learning_rate),
                                           (rand, rand_arr)])
 
@@ -331,10 +351,17 @@ def compile_models(model, config, flag_top_5=False):
 
     validate_model = theano.function([], validate_outputs,
                                      givens=[(x, shared_x), (y, shared_y),
+                                             (filter_bank, shared_filter_bank),
+                                             (filter_scale, shared_filter_scale),
+                                             (input_scale, shared_input_scale),
                                              (rand, rand_arr)])
 
     train_error = theano.function(
-        [], errors, givens=[(x, shared_x), (y, shared_y), (rand, rand_arr)])
+        [], errors, givens=[(x, shared_x), (y, shared_y),
+                            (filter_bank, shared_filter_bank),
+                            (filter_scale, shared_filter_scale),
+                            (input_scale, shared_input_scale),
+                            (rand, rand_arr)])
 
     return (train_model, validate_model, train_error,
             learning_rate, shared_x, shared_y, rand_arr, vels)

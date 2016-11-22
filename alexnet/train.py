@@ -22,8 +22,10 @@ def train_wavenet(config):
      train_labels, val_labels, img_mean) = unpack_configs(config)
 
     # load filter bank:
-    with open(config['filter_bank'], "rb") as input_file:
-        filter_bank = pickle.load(input_file)
+    with open(config['filter_bank_file'], "rb") as input_file:
+        tmp = pickle.load(input_file)
+        config['filter_bank'], config['filter_scale'] = np.array(tmp['data'], dtype=np.float32), np.array(tmp['scale'], dtype=np.float32)
+        config['filter_bank'] = config['filter_bank'][:, 16:-17, 16:-17]
 
     # pycuda set up
     drv.init()
@@ -53,7 +55,7 @@ def train_wavenet(config):
     import theano.misc.pycuda_utils
 
     ## BUILD NETWORK ##
-    model = WaveNet(config, filter_bank)
+    model = WaveNet(config)
     layers = model.layers
     batch_size = model.batch_size
 

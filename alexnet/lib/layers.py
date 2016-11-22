@@ -29,7 +29,7 @@ class Weight(object):
             self.np_values = np.cast[theano.config.floatX](
                 mean * np.ones(w_shape, dtype=theano.config.floatX))
 
-        self.val = theano.shared(value=self.np_values)
+        self.val = theano.shared(value=self.np_values, borrow=True)
 
     def save_weight(self, dir, name):
         print 'weight saved: ' + name
@@ -48,7 +48,7 @@ class FilterBankWeight(object):
         self.np_values = np.cast[theano.config.floatX](
             np.array(w_val, dtype=theano.config.floatX))
 
-        self.val = theano.shared(value=self.np_values)
+        self.val = theano.shared(value=self.np_values, borrow=True)
 
     def save_weight(self, dir, name):
         print 'weight saved: ' + name
@@ -123,21 +123,24 @@ class FilterBankConvPoolLayer(object):
                                          non_sequences=filter_scales,
                                          n_steps=input_scales.shape[0]
                                          )
+        is_apply_filter = T.flatten(is_apply_filter[-1])
         output_scales = T.tile(filter_scales, input_scales.shape[0])
         output_scales = output_scales[T.nonzero(is_apply_filter)]
         # wavenet weights are the factors multiplying each filter-to-featuremap convolution:
-        self.W = Weight((input_scales.shape[0], filter_scales.shape[0]))
-        self.b = Weight(is_apply_filter.shape[0], bias_init, std=0)
+        self.W = Weight((image_shape[0], filter_shape[0]))
+        self.b = Weight((image_shape[0], filter_shape[0]), bias_init, std=0)
+
+        # create 4d tensor representing the filter bank and their weights:
 
         input_shuffled = input.dimshuffle(3, 0, 1, 2)  # c01b to bc01
-
-        conv_out_complex = theano.scan(fn=lambda I, f, W, cs, ps, flg: progress_single_image(I, f, W, cs, ps, flg),
-                                       sequences=input_shuffled,
-                                       non_sequences=[self.filter_bank, self.W, (convstride, convstride), padsize, is_apply_filter],
-                                       n_steps=input_shuffled.shape[0]
-                                       )
-        conv_out = T.sqrt(T.sqr(T.real(conv_out_complex)) + T.sqr(T.imag(conv_out_complex)))
-        conv_out = conv_out + self.b.val.dimshuffle('x', 0, 'x', 'x')
+        cs = theano.shared(convstride)
+        ps = theano.shared(padsize)
+        conv_out, _ = theano.scan(fn=lambda I, f, W, b, cs, ps, flg: progress_single_image(I, f, W, b, cs, ps, flg),
+                                  sequences=input_shuffled,
+                                  non_sequences=[self.filter_bank, self.W.val, self.b.val, cs, ps, is_apply_filter],
+                                  n_steps=input_shuffled.shape[0]
+                                  )
+        # conv_out = T.sqrt(T.sqr(T.real(conv_out_complex)) + T.sqr(T.imag(conv_out_complex)))
 
         # ReLu
         self.output = T.maximum(conv_out, 0)
@@ -150,7 +153,7 @@ class FilterBankConvPoolLayer(object):
                                        stride=(poolstride, poolstride))
 
         self.output = self.output.dimshuffle(1, 2, 3, 0)  # bc01 to c01b
-        assert self.ouput.shape[0] == self.output_scales.shape[0]
+        # assert self.output.shape[0] == self.output_scales.shape[0]
         # LRN
         if self.lrn:
             self.output = self.lrn_func(self.output)
@@ -400,6 +403,8 @@ class SoftmaxLayer(object):
             # represents a mistake in prediction
             y_pred_top_x = T.argsort(self.p_y_given_x, axis=1)[:, -num_top:]
             y_top_x = y.reshape((y.shape[0], 1)).repeat(num_top, axis=1)
-            return T.mean(T.min(T.neq(y_pred_top_x, y_top_x), axis=1))
+            bool_neq = T.neq(y_pred_top_x, y_top_x)
+            int_neq = T.cast(bool_neq, 'int32')
+            return T.mean(T.min(int_neq, axis=1))
         else:
             raise NotImplementedError()

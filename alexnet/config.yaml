@@ -28,7 +28,7 @@ momentum: 0.9 # def: 0.9
 weight_decay: 0.0005 # def: 0.0005
 
 # Directories
-filter_bank: /home/ubuntu/DL/Images/ImageNet/filters.pickle
+filter_bank_file: /home/ubuntu/DL/Images/ImageNet/filters.pickle
 # label_folder: /scratch/ilsvrc12/labels/
 # mean_file: /scratch/ilsvrc12/misc/img_mean.npy
 # weights_dir: ./models/  # directory for saving weights and results
