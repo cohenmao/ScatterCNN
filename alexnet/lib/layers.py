@@ -41,25 +41,6 @@ class Weight(object):
         self.val.set_value(self.np_values)
 
 
-class FilterBankWeight(object):
-
-    def __init__(self, w_val):
-        super(Weight, self).__init__()
-        self.np_values = np.cast[theano.config.floatX](
-            np.array(w_val, dtype=theano.config.floatX))
-
-        self.val = theano.shared(value=self.np_values, borrow=True)
-
-    def save_weight(self, dir, name):
-        print 'weight saved: ' + name
-        np.save(dir + name + '.npy', self.val.get_value())
-
-    def load_weight(self, dir, name):
-        print 'weight loaded: ' + name
-        self.np_values = np.load(dir + name + '.npy')
-        self.val.set_value(self.np_values)
-
-
 class DataLayer(object):
 
     def __init__(self, input, image_shape, cropsize, rand, mirror, flag_rand):
@@ -93,14 +74,12 @@ class DataLayer(object):
 
 class FilterBankConvPoolLayer(object):
 
-    def __init__(self, input, input_scales, image_shape, filter_bank, filter_scales, filter_shape,
+    def __init__(self, input, image_shape, filter_bank, filter_shape,
                  convstride, padsize, group, poolsize, poolstride, bias_init, lrn=False, lib_conv='cudnn',
                  ):
 
         self.filter_size = filter_shape
         self.filter_bank = filter_bank
-        self.input_scales = input_scales
-        self.filter_scales = filter_scales
         self.convstride = convstride
         self.padsize = padsize
         self.poolsize = poolsize
@@ -116,36 +95,43 @@ class FilterBankConvPoolLayer(object):
         if self.lrn:
             self.lrn_func = CrossChannelNormalization()
 
-        # returns a theano.tensor.vector() type variable with indications on the specific response-to-filter
-        # combinations that create frequency decreasing paths:
-        is_apply_filter, _ = theano.scan(fn=lambda Y, X: greater_than_elementwise(X, Y),
-                                         sequences=input_scales,
-                                         non_sequences=filter_scales,
-                                         n_steps=input_scales.shape[0]
-                                         )
-        is_apply_filter = T.flatten(is_apply_filter[-1])
-        output_scales = T.tile(filter_scales, input_scales.shape[0])
-        output_scales = output_scales[T.nonzero(is_apply_filter)]
-        # wavenet weights are the factors multiplying each filter-to-featuremap convolution:
-        self.W = Weight((image_shape[0], filter_shape[0]))
-        self.b = Weight((image_shape[0], filter_shape[0]), bias_init, std=0)
+        # Wavenet weights are the factors multiplying each filter-to-feature-map convolution:
+        self.W = Weight((image_shape[3], filter_shape[0]))
+        # Wavenet bias identical to Alexnet bias:
+        self.b = Weight(self.filter_shape[0], bias_init, std=0)
 
-        # create 4d tensor representing the filter bank and their weights:
+        # note: The following code segment builds 4d tensors for both weights and filters, and then multiplies the two.
+        # The original Alexnet code shuffles the image data: image_shape = [a, b, c, d] turns after shuffle to
+        # [d, a, b, c], and image_shape[0] refers to the amount of responses from the previous layer.
+        # Contrary to the above, the filter data is part of the Wavenet additions, so it is a 3d tensor which needs
+        # transformation to a 4d tensor (this happens right below). Therefore, filter_shape[0] refers to the number of
+        # filters (and not filter_shape[3]):
 
+        # create a 4d tensor for the weights:
+        broadcasted_weights = T.reshape(self.W, (image_shape[3], filter_shape[0], 1, 1))
+        weight_tensor = T.tile(broadcasted_weights, (1, 1, image_shape[2], image_shape[3]))
+        # create a 4d tensor for the filter bank:
+        tiled_filter_bank = T.tile(filter_bank, (image_shape[3], 1, 1))
+        reshaped_filter_bank = T.reshape(
+            tiled_filter_bank, (image_shape[3], filter_shape[0], filter_shape[1], filter_shape[2])
+        )
+        shuffled_filter_bank = reshaped_filter_bank.dimshuffle(1, 0, 2, 3)
+        filter_bank_tensor = T.reshape(
+            T.flatten(shuffled_filter_bank), (image_shape[3], filter_shape[0], filter_shape[1], filter_shape[2])
+        )
+        # multiply (element-wise) the weights and the filters:
+        weighted_filter_bank_tensor = filter_bank_tensor*weight_tensor
+
+        # convolve the weighted filter tensor with the data:
         input_shuffled = input.dimshuffle(3, 0, 1, 2)  # c01b to bc01
-        cs = theano.shared(convstride)
-        ps = theano.shared(padsize)
-        conv_out, _ = theano.scan(fn=lambda I, f, W, b, cs, ps, flg: progress_single_image(I, f, W, b, cs, ps, flg),
-                                  sequences=input_shuffled,
-                                  non_sequences=[self.filter_bank, self.W.val, self.b.val, cs, ps, is_apply_filter],
-                                  n_steps=input_shuffled.shape[0]
-                                  )
-        # conv_out = T.sqrt(T.sqr(T.real(conv_out_complex)) + T.sqr(T.imag(conv_out_complex)))
-
+        conv_out = dnn.dnn_conv(img=input_shuffled,
+                                kerns=weighted_filter_bank_tensor,
+                                subsample=(convstride, convstride),
+                                border_mode=padsize,
+                                )
+        conv_out = conv_out + self.b.val.dimshuffle('x', 0, 'x', 'x')
         # ReLu
         self.output = T.maximum(conv_out, 0)
-        self.output_scales = output_scales
-
         # Pooling
         if self.poolsize != 1:
             self.output = dnn.dnn_pool(self.output,
@@ -153,7 +139,6 @@ class FilterBankConvPoolLayer(object):
                                        stride=(poolstride, poolstride))
 
         self.output = self.output.dimshuffle(1, 2, 3, 0)  # bc01 to c01b
-        # assert self.output.shape[0] == self.output_scales.shape[0]
         # LRN
         if self.lrn:
             self.output = self.lrn_func(self.output)
