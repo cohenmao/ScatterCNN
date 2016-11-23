@@ -2,9 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a09f6bb1-c9e3-40e8-9665-8f0f7e72ec8a" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/alexnet/alex_net.py" afterPath="$PROJECT_DIR$/alexnet/alex_net.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/alexnet/lib/layers.py" afterPath="$PROJECT_DIR$/alexnet/lib/layers.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test_scripts/test2.py" afterPath="$PROJECT_DIR$/test_scripts/test2.py" />
     </list>
     <ignored path="ScatterCNN.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -25,12 +23,14 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file leaf-file-name="layers.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="layers.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/alexnet/lib/layers.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0">
-              <caret line="79" column="0" selection-start-line="79" selection-start-column="0" selection-end-line="79" selection-end-column="0" />
-              <folding />
+            <state vertical-scroll-proportion="0.2354788">
+              <caret line="110" column="51" selection-start-line="110" selection-start-column="51" selection-end-line="110" selection-end-column="51" />
+              <folding>
+                <element signature="e#1427#2402#0" expanded="false" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -45,11 +45,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="alex_net.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="alex_net.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/alexnet/alex_net.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-0.78178966">
-              <caret line="14" column="0" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="0" />
+            <state vertical-scroll-proportion="0.0">
+              <caret line="184" column="43" selection-start-line="184" selection-start-column="43" selection-end-line="184" selection-end-column="43" />
               <folding>
                 <element signature="e#392#6019#0" expanded="false" />
               </folding>
@@ -150,8 +150,8 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/test_scripts/test2.py" />
-        <option value="$PROJECT_DIR$/alexnet/lib/layers.py" />
         <option value="$PROJECT_DIR$/alexnet/alex_net.py" />
+        <option value="$PROJECT_DIR$/alexnet/lib/layers.py" />
       </list>
     </option>
   </component>
@@ -470,7 +470,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
           <caret line="315" column="59" selection-start-line="315" selection-start-column="52" selection-end-line="315" selection-end-column="59" />
-          <folding />
+          <folding>
+            <element signature="e#1427#2402#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -504,7 +506,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
           <caret line="315" column="59" selection-start-line="315" selection-start-column="52" selection-end-line="315" selection-end-column="59" />
-          <folding />
+          <folding>
+            <element signature="e#1427#2402#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -538,7 +542,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
           <caret line="315" column="59" selection-start-line="315" selection-start-column="52" selection-end-line="315" selection-end-column="59" />
-          <folding />
+          <folding>
+            <element signature="e#1427#2402#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -572,7 +578,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
           <caret line="315" column="59" selection-start-line="315" selection-start-column="52" selection-end-line="315" selection-end-column="59" />
-          <folding />
+          <folding>
+            <element signature="e#1427#2402#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -678,14 +686,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/alexnet/lib/layers.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="79" column="0" selection-start-line="79" selection-start-column="0" selection-end-line="79" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/test_scripts/test_conv.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-22.275862">
@@ -698,10 +698,20 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/alexnet/alex_net.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-0.78178966">
-          <caret line="14" column="0" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="0" />
+        <state vertical-scroll-proportion="0.0">
+          <caret line="184" column="43" selection-start-line="184" selection-start-column="43" selection-end-line="184" selection-end-column="43" />
           <folding>
             <element signature="e#392#6019#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/alexnet/lib/layers.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.2354788">
+          <caret line="110" column="51" selection-start-line="110" selection-start-column="51" selection-end-line="110" selection-end-column="51" />
+          <folding>
+            <element signature="e#1427#2402#0" expanded="false" />
           </folding>
         </state>
       </provider>

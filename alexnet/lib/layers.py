@@ -108,7 +108,7 @@ class FilterBankConvPoolLayer(object):
         # filters (and not filter_shape[3]):
 
         # create a 4d tensor for the weights:
-        broadcasted_weights = T.reshape(self.W, (image_shape[3], filter_shape[0], 1, 1))
+        broadcasted_weights = T.reshape(self.W.val, (image_shape[3], filter_shape[0], 1, 1))
         weight_tensor = T.tile(broadcasted_weights, (1, 1, image_shape[2], image_shape[3]))
         # create a 4d tensor for the filter bank:
         tiled_filter_bank = T.tile(filter_bank, (image_shape[3], 1, 1))
