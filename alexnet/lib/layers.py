@@ -96,7 +96,7 @@ class FilterBankConvPoolLayer(object):
             self.lrn_func = CrossChannelNormalization()
 
         # Wavenet weights are the factors multiplying each filter-to-feature-map convolution:
-        self.W = Weight((image_shape[3], filter_shape[0]))
+        self.W = Weight((filter_shape[0], image_shape[0]), mean=1)
         # Wavenet bias identical to Alexnet bias:
         self.b = Weight(self.filter_shape[0], bias_init, std=0)
 
@@ -108,16 +108,16 @@ class FilterBankConvPoolLayer(object):
         # filters (and not filter_shape[3]):
 
         # create a 4d tensor for the weights:
-        broadcasted_weights = T.reshape(self.W.val, (image_shape[3], filter_shape[0], 1, 1))
-        weight_tensor = T.tile(broadcasted_weights, (1, 1, image_shape[2], image_shape[3]))
+        broadcasted_weights = T.reshape(self.W.val, (filter_shape[0], image_shape[0], 1, 1))
+        weight_tensor = T.tile(broadcasted_weights, (1, 1, filter_shape[1], filter_shape[2]))
         # create a 4d tensor for the filter bank:
-        tiled_filter_bank = T.tile(filter_bank, (image_shape[3], 1, 1))
+        tiled_filter_bank = T.tile(filter_bank, (image_shape[0], 1, 1))
         reshaped_filter_bank = T.reshape(
-            tiled_filter_bank, (image_shape[3], filter_shape[0], filter_shape[1], filter_shape[2])
+            tiled_filter_bank, (filter_shape[0], image_shape[0], filter_shape[1], filter_shape[2])
         )
         shuffled_filter_bank = reshaped_filter_bank.dimshuffle(1, 0, 2, 3)
         filter_bank_tensor = T.reshape(
-            T.flatten(shuffled_filter_bank), (image_shape[3], filter_shape[0], filter_shape[1], filter_shape[2])
+            T.flatten(shuffled_filter_bank), (filter_shape[0], image_shape[0], filter_shape[1], filter_shape[2])
         )
         # multiply (element-wise) the weights and the filters:
         weighted_filter_bank_tensor = filter_bank_tensor*weight_tensor

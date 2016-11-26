@@ -1,30 +1,17 @@
 import numpy
 import theano
 import theano.tensor as T
+from theano.sandbox.cuda import dnn
 
 input_scales = T.vector("input_scales")
 filter_scales = T.vector("filter_scales")
 
+flt = T.ftensor4("flt")
+res = T.ftensor4("res")
 
+conved = dnn.dnn_conv(img=res, kerns=flt, subsample=(3, 3), border_mode=15)
+pooled = dnn.dnn_pool(img=conved, ws=(4, 4), stride=(3, 3))
 
-def greater_than_elementwise(X, y):
-
-    res, _ = theano.scan(fn=lambda X, y: X > y, sequences=X, non_sequences=y, n_steps=X.shape[0])
-    return res
-
-is_apply_filter, _ = theano.scan(fn=lambda Y, X: greater_than_elementwise(X, Y),
-                                 sequences=input_scales,
-                                 non_sequences=filter_scales,
-                                 n_steps=input_scales.shape[0]
-                                 )
-
-
-check = theano.function(inputs=[input_scales, filter_scales], outputs=T.flatten(is_apply_filter))
-apply = check([1, 2, 3, 4], [3, 1, 5])
-1
-
-
-# TODO: try and define in advance the size of the filter_bank, the same way alexnet does in the filter shape which is not a symbolic variable
-
-
+f = theano.function(inputs=[res, flt], outputs=pooled, allow_input_downcast=True)
+print(numpy.shape(f(numpy.ones((1, 30, 113, 113)), numpy.ones((30, 30, 31, 31)))))
 

@@ -6,6 +6,7 @@ theano.config.exception_verbosity = 'high'
 theano.config.on_unused_input = 'warn'
 import theano.tensor as T
 from theano.sandbox.cuda import dnn
+from theano.compile.nanguardmode import NanGuardMode
 
 import numpy as np
 
@@ -188,11 +189,11 @@ class WaveNet(object):
                                                   image_shape=(30, 113, 113, batch_size),
                                                   filter_bank=filter_bank,
                                                   filter_shape=(30, 31, 31),
-                                                  convstride=9, padsize=15, group=1,
+                                                  convstride=3, padsize=15, group=1,
                                                   poolsize=4, poolstride=3,
                                                   bias_init=0.1, lrn=True,
                                                   lib_conv=lib_conv,
-                                                  )  # layer output shape: (360, 4, 4, batch_size)
+                                                  )  # layer output shape: (30, 12, 12, batch_size)
         self.layers.append(convpool_layer2)
         params += convpool_layer2.params
         weight_types += convpool_layer2.weight_type
@@ -206,8 +207,8 @@ class WaveNet(object):
         """
         fc_layer3_input = T.flatten(
             convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2)
-        # 5760 = 4*4*360 (360-num feature maps in last layer, 4*4-response size)
-        fc_layer3 = FCLayer(input=fc_layer3_input, n_in=4*4*360, n_out=2560)
+        # 4320 = 12*12*30 (30-num feature maps in last layer, 12*12-response size)
+        fc_layer3 = FCLayer(input=fc_layer3_input, n_in=12*12*30, n_out=2560)
         self.layers.append(fc_layer3)
         params += fc_layer3.params
         weight_types += fc_layer3.weight_type
