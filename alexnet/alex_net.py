@@ -207,7 +207,7 @@ class WaveNet(object):
         """
         fc_layer3_input = T.flatten(
             convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2)
-        # 4320 = 12*12*30 (30-num feature maps in last layer, 12*12-response size)
+        # 12*12*30 (30-num feature maps in last layer, 12*12-response size)
         fc_layer3 = FCLayer(input=fc_layer3_input, n_in=12*12*30, n_out=2560)
         self.layers.append(fc_layer3)
         params += fc_layer3.params
@@ -223,13 +223,14 @@ class WaveNet(object):
         dropout_layer4 = DropoutLayer(fc_layer4.output, n_in=2560, n_out=2560)
 
         softmax_layer5 = SoftmaxLayer(
-            input=dropout_layer4.output, n_in=2560, n_out=30)
+            input=dropout_layer4.output, n_in=2560, n_out=28)
         self.layers.append(softmax_layer5)
         params += softmax_layer5.params
         weight_types += softmax_layer5.weight_type
 
         # #################### NETWORK BUILT #######################
 
+        self.predictions = softmax_layer5.y_pred
         self.cost = softmax_layer5.negative_log_likelihood(y)
         self.errors = softmax_layer5.errors(y)
         self.errors_top_5 = softmax_layer5.errors_top_x(y, 5)
@@ -251,6 +252,7 @@ def compile_models(model, config, flag_top_5=False):
     rand = model.rand
     weight_types = model.weight_types
 
+    pred = model.predictions
     cost = model.cost
     params = model.params
     errors = model.errors
@@ -338,10 +340,15 @@ def compile_models(model, config, flag_top_5=False):
                                              (filter_bank, shared_filter_bank),
                                              (rand, rand_arr)])
 
+    get_predictions = theano.function([], pred,
+                                     givens=[(x, shared_x), (y, shared_y),
+                                             (filter_bank, shared_filter_bank),
+                                             (rand, rand_arr)])
+
     train_error = theano.function(
         [], errors, givens=[(x, shared_x), (y, shared_y),
                             (filter_bank, shared_filter_bank),
                             (rand, rand_arr)])
 
     return (train_model, validate_model, train_error,
-            learning_rate, shared_x, shared_y, rand_arr, vels)
+            learning_rate, shared_x, shared_y, rand_arr, vels, get_predictions)

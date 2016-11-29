@@ -61,7 +61,7 @@ def train_wavenet(config):
 
     ## COMPILE FUNCTIONS ##
     (train_model, validate_model, train_error, learning_rate,
-        shared_x, shared_y, rand_arr, vels) = compile_models(model, config)
+        shared_x, shared_y, rand_arr, vels, get_predictions) = compile_models(model, config)
 
 
     ######################### TRAIN MODEL ################################
@@ -150,7 +150,7 @@ def train_wavenet(config):
             rand_arr, shared_x, shared_y,
             val_filenames, val_labels,
             flag_para_load, img_mean,
-            batch_size, validate_model,
+            batch_size, validate_model, get_predictions,
             send_queue=load_send_queue, recv_queue=load_recv_queue)
 
 
@@ -218,7 +218,7 @@ def train_net(config):
 
     ## COMPILE FUNCTIONS ##
     (train_model, validate_model, train_error, learning_rate,
-        shared_x, shared_y, rand_arr, vels) = compile_models(model, config)
+        shared_x, shared_y, rand_arr, vels, get_predictions) = compile_models(model, config)
 
 
     ######################### TRAIN MODEL ################################
@@ -307,7 +307,7 @@ def train_net(config):
             rand_arr, shared_x, shared_y,
             val_filenames, val_labels,
             flag_para_load, img_mean,
-            batch_size, validate_model,
+            batch_size, validate_model, get_predictions,
             send_queue=load_send_queue, recv_queue=load_recv_queue)
 
 

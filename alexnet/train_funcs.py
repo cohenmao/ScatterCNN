@@ -60,7 +60,7 @@ def adjust_learning_rate(config, epoch, step_idx, val_record, learning_rate):
 def get_val_error_loss(rand_arr, shared_x, shared_y,
                        val_filenames, val_labels,
                        flag_para_load, img_mean,
-                       batch_size, validate_model,
+                       batch_size, validate_model, get_predictions,
                        send_queue=None, recv_queue=None,
                        flag_top_5=False):
 
@@ -98,6 +98,14 @@ def get_val_error_loss(rand_arr, shared_x, shared_y,
 
         shared_y.set_value(val_labels[val_index * batch_size:
                                       (val_index + 1) * batch_size])
+
+        """
+        maoz: print expected vs predictions:
+        print('shared y:')
+        print(shared_y.get_value())
+        print('predictions:')
+        print(get_predictions())
+        """
 
         if flag_top_5:
             loss, error, error_top_5 = validate_model()
