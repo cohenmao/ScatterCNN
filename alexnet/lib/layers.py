@@ -136,7 +136,8 @@ class FilterBankConvPoolLayer(object):
         if self.poolsize != 1:
             self.output = dnn.dnn_pool(self.output,
                                        ws=(poolsize, poolsize),
-                                       stride=(poolstride, poolstride))
+                                       stride=(poolstride, poolstride),
+                                       )
 
         self.output = self.output.dimshuffle(1, 2, 3, 0)  # bc01 to c01b
         # LRN
