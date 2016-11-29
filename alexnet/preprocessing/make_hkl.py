@@ -151,7 +151,7 @@ if __name__ == '__main__':
     val_filenames = np.asarray(sorted(glob.glob(val_img_dir + '/*JPEG')))
 
     img_size = 256
-    batch_size = 256
+    batch_size = 32
 
     if gen_type == 'toy':
         # generate 10 batches each

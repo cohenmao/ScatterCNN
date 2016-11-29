@@ -32,9 +32,9 @@ filter_bank_file: /home/ubuntu/DL/Images/ImageNet/filters.pickle
 # label_folder: /scratch/ilsvrc12/labels/
 # mean_file: /scratch/ilsvrc12/misc/img_mean.npy
 # weights_dir: ./models/  # directory for saving weights and results
-label_folder: /home/ubuntu/DL/Images/ImageNet/Output30/tar_root_dir/labels/
-mean_file: /home/ubuntu/DL/Images/ImageNet/Output30/tar_root_dir/misc/img_mean.npy
-weights_dir: /home/ubuntu/DL/Images/ImageNet/Output30/tar_root_dir/models/ # directory for saving weights and results
+label_folder: /home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/labels/
+mean_file: /home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/misc/img_mean.npy
+weights_dir: /home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/models/ # directory for saving weights and results
 
 # conv library
 lib_conv: cudnn  # or cudaconvnet
