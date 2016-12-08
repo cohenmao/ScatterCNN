@@ -2,12 +2,10 @@ import numpy
 import theano
 import theano.tensor as T
 from theano.sandbox.cuda import dnn
-import time
 
 input = T.tensor4("input")
 flt = T.tensor3('flt')
 W = T.ftensor4("W")
-# output = dnn.dnn_conv(img=input.dimshuffle(3, 0, 1, 2), kerns=W, subsample=(1, 1), border_mode=1)
 
 def process_single_featuremap(image, flt):
 
@@ -16,9 +14,7 @@ def process_single_featuremap(image, flt):
     reshaped_filter = T.reshape(flt, (1, flt.shape[0], flt.shape[1], flt.shape[2]))  # (1, n_flt, Y, Y)
     shuffled_filter = reshaped_filter.dimshuffle(1, 0, 2, 3)  # (n_flt, 1, Y, Y)
     conv = dnn.dnn_conv(shuffled_image, shuffled_filter, subsample=(3, 3), border_mode=15)  # (n_im, n_flt, Z, Z)
-
     return conv.dimshuffle(1, 2, 3, 0)  # (n_flt, Z, Z, n_im)
-
 
 conv, _ = theano.scan(fn=lambda I, f: process_single_featuremap(I, f),
                       sequences=input,
@@ -28,14 +24,8 @@ conv, _ = theano.scan(fn=lambda I, f: process_single_featuremap(I, f),
 conv = T.reshape(conv, (conv.shape[0]*conv.shape[1], conv.shape[2], conv.shape[3], conv.shape[4])).dimshuffle(3, 0, 1, 2)
 pooled = dnn.dnn_pool(conv, ws=(6, 6), stride=(6, 6))
 pooled = pooled.dimshuffle(1, 2, 3, 0)
-
 my_conv = theano.function(inputs=[input, flt], outputs=pooled, allow_input_downcast=True)
-# alex_conv = theano.function(inputs=[input, W], outputs=output, allow_input_downcast=True)
 
 input = numpy.ones((1, 227, 227, 1))
 flt = numpy.ones((30, 31, 31))
 print(numpy.shape(my_conv(input, flt)))
-
-
-
-
