@@ -173,67 +173,47 @@ class WaveNet(object):
             layer1_input = x
 
         convpool_layer1 = FilterBankConvPoolLayer(input=layer1_input,
-                                                  image_shape=(3, 227, 227, batch_size),
-                                                  filter_bank=filter_bank,
-                                                  filter_shape=(30, 31, 31),
-                                                  convstride=1, padsize=15, group=1,
-                                                  poolsize=3, poolstride=2,
-                                                  bias_init=0.0, lrn=True,
-                                                  lib_conv=lib_conv,
-                                                  )   # layer output shape: (90, 113, 113, batch_size)
-        self.layers.append(convpool_layer1)
-        params += convpool_layer1.params
-        weight_types += convpool_layer1.weight_type
-
-        convpool_layer2 = FilterBankConvPoolLayer(input=convpool_layer1.output,
-                                                  image_shape=(30, 113, 113, batch_size),
+                                                  image_shape=(1, 227, 227, batch_size),
                                                   filter_bank=filter_bank,
                                                   filter_shape=(30, 31, 31),
                                                   convstride=3, padsize=15, group=1,
-                                                  poolsize=4, poolstride=3,
-                                                  bias_init=0.1, lrn=True,
+                                                  poolsize=6, poolstride=6,
+                                                  bias_init=0.0, lrn=True,
                                                   lib_conv=lib_conv,
-                                                  )  # layer output shape: (30, 12, 12, batch_size)
-        self.layers.append(convpool_layer2)
-        params += convpool_layer2.params
-        weight_types += convpool_layer2.weight_type
-        """
-        fc_layer3_input = T.concatenate([T.flatten(convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2),
-                          T.flatten(
-                              dnn.dnn_pool(convpool_layer1.output, ws=(9, 9), stride=(3, 3)).dimshuffle(3, 0, 1, 2), 2
-                          )
-                                         ]
-                                        )
-        """
-        fc_layer3_input = T.flatten(
-            convpool_layer2.output.dimshuffle(3, 0, 1, 2), 2)
+                                                  )   # layer output shape: (30, 12, 12, batch_size)
+        self.layers.append(convpool_layer1)
+        # params += convpool_layer1.params
+        # weight_types += convpool_layer1.weight_type
+
+        fc_layer2_input = T.flatten(
+            convpool_layer1.output.dimshuffle(3, 0, 1, 2), 2)
         # 12*12*30 (30-num feature maps in last layer, 12*12-response size)
-        fc_layer3 = FCLayer(input=fc_layer3_input, n_in=12*12*30, n_out=2560)
+        fc_layer2 = FCLayer(input=fc_layer2_input, n_in=12*12*30, n_out=2000)
+        self.layers.append(fc_layer2)
+        params += fc_layer2.params
+        weight_types += fc_layer2.weight_type
+
+        dropout_layer2 = DropoutLayer(fc_layer2.output, n_in=2000, n_out=2000, prob_drop=0.5)
+
+        fc_layer3 = FCLayer(input=dropout_layer2.output, n_in=2000, n_out=1000)
         self.layers.append(fc_layer3)
         params += fc_layer3.params
         weight_types += fc_layer3.weight_type
 
-        dropout_layer3 = DropoutLayer(fc_layer3.output, n_in=2560, n_out=2560)
+        dropout_layer3 = DropoutLayer(fc_layer3.output, n_in=1000, n_out=1000, prob_drop=0.5)
 
-        fc_layer4 = FCLayer(input=dropout_layer3.output, n_in=2560, n_out=2560)
-        self.layers.append(fc_layer4)
-        params += fc_layer4.params
-        weight_types += fc_layer4.weight_type
-
-        dropout_layer4 = DropoutLayer(fc_layer4.output, n_in=2560, n_out=2560)
-
-        softmax_layer5 = SoftmaxLayer(
-            input=dropout_layer4.output, n_in=2560, n_out=28)
-        self.layers.append(softmax_layer5)
-        params += softmax_layer5.params
-        weight_types += softmax_layer5.weight_type
+        softmax_layer4 = SoftmaxLayer(
+            input=dropout_layer3.output, n_in=1000, n_out=28)
+        self.layers.append(softmax_layer4)
+        params += softmax_layer4.params
+        weight_types += softmax_layer4.weight_type
 
         # #################### NETWORK BUILT #######################
 
-        self.predictions = softmax_layer5.y_pred
-        self.cost = softmax_layer5.negative_log_likelihood(y)
-        self.errors = softmax_layer5.errors(y)
-        self.errors_top_5 = softmax_layer5.errors_top_x(y, 5)
+        self.predictions = softmax_layer4.y_pred
+        self.cost = softmax_layer4.negative_log_likelihood(y)
+        self.errors = softmax_layer4.errors(y)
+        self.errors_top_5 = softmax_layer4.errors_top_x(y, 5)
         self.params = params
         self.x = x
         self.y = y
@@ -274,14 +254,14 @@ def compile_models(model, config, flag_top_5=False):
     else:
         raw_size = 227
 
-    shared_x = theano.shared(np.zeros((3, raw_size, raw_size,
+    shared_x = theano.shared(np.zeros((1, raw_size, raw_size,
                                        batch_size),
                                       dtype=theano.config.floatX),
                              borrow=True)
     shared_y = theano.shared(np.zeros((batch_size,), dtype=int),
                              borrow=True)
 
-    rand_arr = theano.shared(np.zeros(3, dtype=theano.config.floatX),
+    rand_arr = theano.shared(np.zeros(1, dtype=theano.config.floatX),
                              borrow=True)
 
     shared_filter_bank = theano.shared(config['filter_bank'], borrow=True)

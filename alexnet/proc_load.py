@@ -98,6 +98,7 @@ def fun_load(config, sock_data=5000):
     sock.bind('tcp://*:{0}'.format(sock_data))
 
     shape, dtype, h = sock.recv_pyobj()
+    shape = [1, shape[1], shape[2], shape[3]]
     print 'shared_x information received'
 
     gpu_data_remote = gpuarray.GPUArray(shape, dtype,

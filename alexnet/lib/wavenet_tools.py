@@ -82,3 +82,17 @@ def greater_than_elementwise(X, y):
 
     res, _ = theano.scan(fn=lambda X, y: X > y, sequences=X, non_sequences=y, n_steps=X.shape[0])
     return res[-1]
+
+
+def process_single_featuremap(image, flt, convstride, padsize):
+
+    reshaped_image = T.reshape(image, (1, image.shape[0], image.shape[1], image.shape[2]))  # (1, X, X, n_im)
+    shuffled_image = reshaped_image.dimshuffle(3, 0, 1, 2)  # (n_im, 1, X, X)
+    reshaped_filter = T.reshape(flt, (1, flt.shape[0], flt.shape[1], flt.shape[2]))  # (1, n_flt, Y, Y)
+    shuffled_filter = reshaped_filter.dimshuffle(1, 0, 2, 3)  # (n_flt, 1, Y, Y)
+
+    pad = int(padsize.get_value())
+    stride = (int(convstride.get_value()), int(convstride.get_value()))
+    conv = dnn.dnn_conv(shuffled_image, shuffled_filter, subsample=stride, border_mode=pad)
+
+    return conv.dimshuffle(1, 2, 3, 0)  # (n_flt, Z, Z, n_im)

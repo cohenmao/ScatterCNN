@@ -9,7 +9,16 @@ import scipy.misc
 import numpy as np
 
 import hickle as hkl
+import numpy
 
+def get_img_gray(img_name, img_size=256, batch_size=256):
+
+    img = numpy.ones((1, img_size, img_size), dtype='uint8')
+    tmp = scipy.misc.imread(img_name)
+    img[0, :, :] = tmp
+    assert img.dtype == 'uint8', img_name
+
+    return img
 
 def get_img(img_name, img_size=256, batch_size=256):
 
@@ -18,6 +27,7 @@ def get_img(img_name, img_size=256, batch_size=256):
     assert img.dtype == 'uint8', img_name
     # assert False
 
+    """
     if len(img.shape) == 2:
         img = scipy.misc.imresize(img, (img_size, img_size))
         img = np.asarray([img, img, img])
@@ -28,6 +38,7 @@ def get_img(img_name, img_size=256, batch_size=256):
         img = np.rollaxis(img, 2)
     if img.shape[0] != 3:
         print img_name
+    """
     return img
 
 
@@ -45,16 +56,16 @@ def save_batches(file_list, tar_dir, img_size=256, batch_size=256,
     if not os.path.exists(tar_dir):
         os.makedirs(tar_dir)
 
-    img_batch = np.zeros((3, img_size, img_size, batch_size), np.uint8)
+    img_batch = np.zeros((1, img_size, img_size, batch_size), np.uint8)
 
     if flag_avg:
-        img_sum = np.zeros((3, img_size, img_size))
+        img_sum = np.zeros((1, img_size, img_size))
 
     batch_count = 0
     count = 0
     for file_name in file_list:
         img_batch[:, :, :, count % batch_size] = \
-            get_img(file_name, img_size=img_size, batch_size=batch_size)
+            get_img_gray(file_name, img_size=img_size, batch_size=batch_size)
 
         count += 1
         if count % batch_size == 0:

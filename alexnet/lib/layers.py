@@ -8,7 +8,7 @@ from theano.sandbox.cuda.basic_ops import gpu_contiguous
 from pylearn2.sandbox.cuda_convnet.filter_acts import FilterActs
 from pylearn2.sandbox.cuda_convnet.pool import MaxPool
 from pylearn2.expr.normalize import CrossChannelNormalization
-from wavenet_tools import progress_single_image, greater_than_elementwise
+from wavenet_tools import process_single_featuremap
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -96,47 +96,29 @@ class FilterBankConvPoolLayer(object):
             self.lrn_func = CrossChannelNormalization()
 
         # Wavenet weights are the factors multiplying each filter-to-feature-map convolution:
-        self.W = Weight((filter_shape[0], image_shape[0]), mean=1)
+        #self.W = Weight((filter_shape[0], image_shape[0]), mean=1)
         # Wavenet bias identical to Alexnet bias:
-        self.b = Weight(self.filter_shape[0], bias_init, std=0)
+        #self.b = Weight(self.filter_shape[0], bias_init, std=0)
 
-        # note: The following code segment builds 4d tensors for both weights and filters, and then multiplies the two.
-        # The original Alexnet code shuffles the image data: image_shape = [a, b, c, d] turns after shuffle to
-        # [d, a, b, c], and image_shape[0] refers to the amount of responses from the previous layer.
-        # Contrary to the above, the filter data is part of the Wavenet additions, so it is a 3d tensor which needs
-        # transformation to a 4d tensor (this happens right below). Therefore, filter_shape[0] refers to the number of
-        # filters (and not filter_shape[3]):
+        # scattering tree propagation of features:
+        cs = theano.shared(convstride)
+        ps = theano.shared(padsize)
+        conv, _ = theano.scan(fn=lambda I, f, stride, pad: process_single_featuremap(I, f, stride, pad),
+                              sequences=input,
+                              non_sequences=[filter_bank, cs, ps],
+                              n_steps=input.shape[0]
+                              )
+        conv_out = T.reshape(conv, (conv.shape[0] * conv.shape[1], conv.shape[2], conv.shape[3], conv.shape[4]))
+        conv_out = conv_out.dimshuffle(3, 0, 1, 2)
 
-        # create a 4d tensor for the weights:
-        broadcasted_weights = T.reshape(self.W.val, (filter_shape[0], image_shape[0], 1, 1))
-        weight_tensor = T.tile(broadcasted_weights, (1, 1, filter_shape[1], filter_shape[2]))
-        # create a 4d tensor for the filter bank:
-        tiled_filter_bank = T.tile(filter_bank, (image_shape[0], 1, 1))
-        reshaped_filter_bank = T.reshape(
-            tiled_filter_bank, (filter_shape[0], image_shape[0], filter_shape[1], filter_shape[2])
-        )
-        shuffled_filter_bank = reshaped_filter_bank.dimshuffle(1, 0, 2, 3)
-        filter_bank_tensor = T.reshape(
-            T.flatten(shuffled_filter_bank), (filter_shape[0], image_shape[0], filter_shape[1], filter_shape[2])
-        )
-        # multiply (element-wise) the weights and the filters:
-        weighted_filter_bank_tensor = filter_bank_tensor*weight_tensor
-
-        # convolve the weighted filter tensor with the data:
-        input_shuffled = input.dimshuffle(3, 0, 1, 2)  # c01b to bc01
-        conv_out = dnn.dnn_conv(img=input_shuffled,
-                                kerns=weighted_filter_bank_tensor,
-                                subsample=(convstride, convstride),
-                                border_mode=padsize,
-                                )
-        conv_out = conv_out + self.b.val.dimshuffle('x', 0, 'x', 'x')
+        # conv_out = conv_out + self.b.val.dimshuffle('x', 0, 'x', 'x')
         # ReLu
         self.output = T.maximum(conv_out, 0)
         # Pooling
         if self.poolsize != 1:
             self.output = dnn.dnn_pool(self.output,
                                        ws=(poolsize, poolsize),
-                                       stride=(poolstride, poolstride),
+                                       stride=(poolstride, poolstride), # mode='average_inc_pad'
                                        )
 
         self.output = self.output.dimshuffle(1, 2, 3, 0)  # bc01 to c01b
@@ -144,8 +126,8 @@ class FilterBankConvPoolLayer(object):
         if self.lrn:
             self.output = self.lrn_func(self.output)
 
-        self.params = [self.W.val, self.b.val]
-        self.weight_type = ['W', 'b']
+        # self.params = [self.W.val, self.b.val]
+        # self.weight_type = ['W', 'b']
 
         print "conv ({}) layer with shape_in: {}".format(lib_conv,
                                                          str(image_shape))
