@@ -10,7 +10,7 @@ from theano.compile.nanguardmode import NanGuardMode
 
 import numpy as np
 
-from layers import DataLayer, ConvPoolLayer, FilterBankConvPoolLayer, DropoutLayer, FCLayer, SoftmaxLayer
+from layers import DataLayer, ConvPoolLayer, FilterBankConvPoolLayer, DropoutLayer, FCLayer, SoftmaxLayer, mutualResponseLayer
 
 
 class AlexNet(object):
@@ -155,6 +155,9 @@ class WaveNet(object):
         x = T.ftensor4('x')
         y = T.lvector('y')
         filter_bank = T.ftensor3('filter_bank')
+        filter_scale = T.vector('filter_scale')
+        filter_orientation = T.vector('filter_orientation')
+        n_orientation = T.scalar('n_orientation')
         rand = T.fvector('rand')
 
         print '... building the model'
@@ -175,19 +178,38 @@ class WaveNet(object):
         convpool_layer1 = FilterBankConvPoolLayer(input=layer1_input,
                                                   image_shape=(1, 227, 227, batch_size),
                                                   filter_bank=filter_bank,
-                                                  filter_shape=(30, 31, 31),
-                                                  convstride=3, padsize=15, group=1,
+                                                  filter_shape=(30, 63, 63),
+                                                  filter_scale=filter_scale,
+                                                  filter_orientation=filter_orientation,
+                                                  n_orientation=n_orientation,
+                                                  convstride=3, padsize=31, group=1,
                                                   poolsize=6, poolstride=6,
                                                   bias_init=0.0, lrn=True,
                                                   lib_conv=lib_conv,
                                                   )   # layer output shape: (30, 12, 12, batch_size)
         self.layers.append(convpool_layer1)
-        # params += convpool_layer1.params
-        # weight_types += convpool_layer1.weight_type
 
-        fc_layer2_input = T.flatten(
-            convpool_layer1.output.dimshuffle(3, 0, 1, 2), 2)
-        # 12*12*30 (30-num feature maps in last layer, 12*12-response size)
+        params += convpool_layer1.params
+        weight_types += convpool_layer1.weight_type
+        """
+        mutual_response_layer1 = mutualResponseLayer(input=convpool_layer1.convolution,
+                                                     input_scale=convpool_layer1.feature_scale,
+                                                     input_orientation=convpool_layer1.feature_orientation,
+                                                     n_orientation=convpool_layer1.n_orientation,
+                                                     convstride=convpool_layer1.convstride,
+                                                     padsize=convpool_layer1.padsize,
+                                                     poolsize=convpool_layer1.poolsize,
+                                                     poolstride=convpool_layer1.poolstride,
+                                                     bias_init=convpool_layer1.bias_init
+                                                     )   # layer output shape: (15, 12, 12, batch_size
+
+
+        filter_bank_data = T.flatten(convpool_layer1.output.dimshuffle(3, 0, 1, 2), 2)
+        mutual_data = T.flatten(mutual_response_layer1.output.dimshuffle(3, 0, 1, 2), 2)
+        fc_layer2_input = T.concatenate([filter_bank_data, mutual_data], axis=1)
+        fc_layer2 = FCLayer(input=fc_layer2_input, n_in=12*12*45, n_out=2000)
+        """
+        fc_layer2_input = T.flatten(convpool_layer1.output.dimshuffle(3, 0, 1, 2), 2)
         fc_layer2 = FCLayer(input=fc_layer2_input, n_in=12*12*30, n_out=2000)
         self.layers.append(fc_layer2)
         params += fc_layer2.params
@@ -218,6 +240,9 @@ class WaveNet(object):
         self.x = x
         self.y = y
         self.filter_bank = filter_bank
+        self.filter_scale = filter_scale
+        self.filter_orientation = filter_orientation
+        self.n_orientation = n_orientation
         self.rand = rand
         self.weight_types = weight_types
         self.batch_size = batch_size
@@ -228,6 +253,9 @@ def compile_models(model, config, flag_top_5=False):
     x = model.x
     y = model.y
     filter_bank = model.filter_bank
+    filter_scale = model.filter_scale
+    filter_orientation = model.filter_orientation
+    n_orientation = model.n_orientation
 
     rand = model.rand
     weight_types = model.weight_types
@@ -265,6 +293,9 @@ def compile_models(model, config, flag_top_5=False):
                              borrow=True)
 
     shared_filter_bank = theano.shared(config['filter_bank'], borrow=True)
+    shared_filter_scale = theano.shared(config['filter_scale'], borrow=True)
+    shared_filter_orientation = theano.shared(config['filter_orientation'], borrow=True)
+    shared_n_orientation = theano.shared(config['n_orientation'], borrow=True)
 
     vels = [theano.shared(param_i.get_value() * 0.)
             for param_i in params]
@@ -308,6 +339,9 @@ def compile_models(model, config, flag_top_5=False):
     train_model = theano.function([], cost, updates=updates,
                                   givens=[(x, shared_x), (y, shared_y),
                                           (filter_bank, shared_filter_bank),
+                                          (filter_scale, shared_filter_scale),
+                                          (filter_orientation, shared_filter_orientation),
+                                          (n_orientation, shared_n_orientation),
                                           (lr, learning_rate),
                                           (rand, rand_arr)])
 
@@ -318,16 +352,25 @@ def compile_models(model, config, flag_top_5=False):
     validate_model = theano.function([], validate_outputs,
                                      givens=[(x, shared_x), (y, shared_y),
                                              (filter_bank, shared_filter_bank),
+                                             (filter_scale, shared_filter_scale),
+                                             (filter_orientation, shared_filter_orientation),
+                                             (n_orientation, shared_n_orientation),
                                              (rand, rand_arr)])
 
     get_predictions = theano.function([], pred,
                                      givens=[(x, shared_x), (y, shared_y),
                                              (filter_bank, shared_filter_bank),
+                                             (filter_scale, shared_filter_scale),
+                                             (filter_orientation, shared_filter_orientation),
+                                             (n_orientation, shared_n_orientation),
                                              (rand, rand_arr)])
 
     train_error = theano.function(
         [], errors, givens=[(x, shared_x), (y, shared_y),
                             (filter_bank, shared_filter_bank),
+                            (filter_scale, shared_filter_scale),
+                            (filter_orientation, shared_filter_orientation),
+                            (n_orientation, shared_n_orientation),
                             (rand, rand_arr)])
 
     return (train_model, validate_model, train_error,

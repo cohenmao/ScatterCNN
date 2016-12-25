@@ -1,21 +1,21 @@
 
-train_img_dir: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/train/'
+train_img_dir: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/train/'
 # the dir that contains folders like n01440764, n01443537, ...
 
-val_img_dir: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/val/'
+val_img_dir: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/val/'
 # the dir that contains ILSVRC2012_val_00000001~50000.JPEG
 
-tar_root_dir: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/'  # dir to store all the preprocessed files
-tar_train_dir: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/train_hkl'  # dir to store training batches
-tar_val_dir: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/val_hkl'  # dir to store validation batches
-misc_dir: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/misc'
+tar_root_dir: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/tar_root_dir/'  # dir to store all the preprocessed files
+tar_train_dir: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/tar_root_dir/train_hkl'  # dir to store training batches
+tar_val_dir: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/tar_root_dir/val_hkl'  # dir to store validation batches
+misc_dir: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/tar_root_dir/misc'
 # dir to store img_mean.npy, shuffled_train_filenames.npy, train.txt, val.txt
 
 meta_clsloc_mat: '/home/ubuntu/DL/theano_alexnet-master/ILSVRC2014_devkit/data/meta_clsloc_orig.mat'
 # val_label_file: '/home/ubuntu/DL/theano_alexnet-master/ILSVRC2014_devkit/data/ILSVRC2014_clsloc_validation_ground_truth_new.txt'
-val_label_file: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/misc/ILSVRC2014_clsloc_validation_ground_truth.txt'
+val_label_file: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/tar_root_dir/misc/ILSVRC2014_clsloc_validation_ground_truth.txt'
 # although from ILSVRC2014, these 2 files still work for ILSVRC2012
 
 # caffe style train and validation labels
-valtxt_filename: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/misc/val.txt'
-traintxt_filename: '/home/ubuntu/DL/Images/ImageNet/OutputKylberg/tar_root_dir/misc/train.txt'
+valtxt_filename: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/tar_root_dir/misc/val.txt'
+traintxt_filename: '/home/ubuntu/DL/Images/ImageNet/OutputPonce/tar_root_dir/misc/train.txt'

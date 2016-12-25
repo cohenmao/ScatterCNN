@@ -8,7 +8,7 @@ from theano.sandbox.cuda.basic_ops import gpu_contiguous
 from pylearn2.sandbox.cuda_convnet.filter_acts import FilterActs
 from pylearn2.sandbox.cuda_convnet.pool import MaxPool
 from pylearn2.expr.normalize import CrossChannelNormalization
-from wavenet_tools import process_single_featuremap
+from wavenet_tools import process_single_featuremap, greater_than_elementwise, create_mutual_one_v_all, equal_elementwise, orthogonal_elementwise
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -74,23 +74,23 @@ class DataLayer(object):
 
 class FilterBankConvPoolLayer(object):
 
-    def __init__(self, input, image_shape, filter_bank, filter_shape,
+    def __init__(self, input, image_shape, filter_bank, filter_shape, filter_scale, filter_orientation, n_orientation,
                  convstride, padsize, group, poolsize, poolstride, bias_init, lrn=False, lib_conv='cudnn',
                  ):
 
-        self.filter_size = filter_shape
         self.filter_bank = filter_bank
+        self.filter_shape = filter_shape
+        self.filter_scale = filter_scale
+        self.filter_orientation = filter_orientation
+        self.n_orientation = n_orientation
         self.convstride = convstride
         self.padsize = padsize
         self.poolsize = poolsize
         self.poolstride = poolstride
-        self.channel = image_shape[0]
+        self.bias_init = bias_init
         self.lrn = lrn
         self.lib_conv = lib_conv
         assert group == 1
-
-        self.filter_shape = np.asarray(filter_shape)
-        self.image_shape = np.asarray(image_shape)
 
         if self.lrn:
             self.lrn_func = CrossChannelNormalization()
@@ -98,7 +98,7 @@ class FilterBankConvPoolLayer(object):
         # Wavenet weights are the factors multiplying each filter-to-feature-map convolution:
         #self.W = Weight((filter_shape[0], image_shape[0]), mean=1)
         # Wavenet bias identical to Alexnet bias:
-        #self.b = Weight(self.filter_shape[0], bias_init, std=0)
+        self.b = Weight(self.filter_shape[0], bias_init, std=0)
 
         # scattering tree propagation of features:
         cs = theano.shared(convstride)
@@ -109,11 +109,17 @@ class FilterBankConvPoolLayer(object):
                               n_steps=input.shape[0]
                               )
         conv_out = T.reshape(conv, (conv.shape[0] * conv.shape[1], conv.shape[2], conv.shape[3], conv.shape[4]))
+
+        self.convolution = conv_out  # (n_features, X, X, batch_size)
+        self.feature_scale = T.tile(filter_scale, input.shape[0])
+        self.feature_orientation = T.tile(filter_orientation, input.shape[0])
+
         conv_out = conv_out.dimshuffle(3, 0, 1, 2)
 
-        # conv_out = conv_out + self.b.val.dimshuffle('x', 0, 'x', 'x')
+        conv_out = conv_out + self.b.val.dimshuffle('x', 0, 'x', 'x')
         # ReLu
         self.output = T.maximum(conv_out, 0)
+
         # Pooling
         if self.poolsize != 1:
             self.output = dnn.dnn_pool(self.output,
@@ -129,8 +135,68 @@ class FilterBankConvPoolLayer(object):
         # self.params = [self.W.val, self.b.val]
         # self.weight_type = ['W', 'b']
 
+        self.params = [self.b.val]
+        self.weight_type = ['b']
+
         print "conv ({}) layer with shape_in: {}".format(lib_conv,
                                                          str(image_shape))
+
+class mutualResponseLayer(object):
+
+    def __init__(self, input, input_scale, input_orientation, n_orientation,
+                 convstride, padsize, poolsize, poolstride, bias_init):
+
+        self.input = input
+        self.input_scale = input_scale
+        self.input_orientation = input_orientation
+        self.n_orientation = n_orientation
+        self.convstride = convstride
+        self.padsize = padsize
+        self.poolsize = poolsize
+        self.poolstride = poolstride
+
+        # calculate mutual response of all pairs of responses:
+        mr, _ = theano.scan(fn=lambda Y, X: create_mutual_one_v_all(X, Y),
+                            sequences=input,
+                            non_sequences=input,
+                            n_steps=input.shape[0]
+                            )
+        reshaped_mutual_response = T.reshape(mr, (mr.shape[0] * mr.shape[1], mr.shape[2], mr.shape[3], mr.shape[4]))
+        # take only the upper triangle of the comparison matrix:
+        n_features = T.arange(input.shape[0])
+        upper_tri, _ = theano.scan(fn=lambda Y, X: greater_than_elementwise(X, Y),
+                                   sequences=n_features,
+                                   non_sequences=n_features,
+                                   n_steps=n_features.shape[0]
+                                   )
+        # take only mutual responses of two orthogonal orientation filters:
+        orthogonal, _ = theano.scan(fn=lambda Y, X, n: orthogonal_elementwise(X, Y, n),
+                                    sequences=input_orientation,
+                                    non_sequences=[input_orientation, n_orientation],
+                                    n_steps=input_orientation.shape[0]
+                                    )
+        # take only mutual responses of two same-scale filters:
+        same_scale, _ = theano.scan(fn=lambda Y, X: equal_elementwise(X, Y),
+                                    sequences=input_scale,
+                                    non_sequences=input_scale,
+                                    n_steps=input_scale.shape[0]
+                                    )
+        flattened = T.flatten(upper_tri * orthogonal * same_scale)
+        filtered_mutual_responses = reshaped_mutual_response[T.nonzero(flattened)]
+        # pass through non-linearity and pooling:
+        output = T.maximum(filtered_mutual_responses, 0)
+        self.output = output.dimshuffle(3, 0, 1, 2)
+        # self.output = input.dimshuffle(3, 0, 1, 2)
+        # Pooling
+        if self.poolsize != 1:
+            self.output = dnn.dnn_pool(self.output,
+                                       ws=(poolsize, poolsize),
+                                       stride=(poolstride, poolstride),  # mode='average_inc_pad'
+                                       )
+        self.output = self.output.dimshuffle(1, 2, 3, 0)
+
+        print 'Mutual response layer'
+
 
 
 class ConvPoolLayer(object):

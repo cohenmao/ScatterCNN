@@ -81,7 +81,12 @@ def convolove_feature_with_filter(input, filter, bias, convstride, padsize):
 def greater_than_elementwise(X, y):
 
     res, _ = theano.scan(fn=lambda X, y: X > y, sequences=X, non_sequences=y, n_steps=X.shape[0])
-    return res[-1]
+    return res
+
+
+def equals_elementwise(X, y):
+    res, _ = theano.scan(fn=lambda X, y: X == y, sequences=X, non_sequences=y, n_steps=X.shape[0])
+    return res
 
 
 def process_single_featuremap(image, flt, convstride, padsize):
@@ -96,3 +101,38 @@ def process_single_featuremap(image, flt, convstride, padsize):
     conv = dnn.dnn_conv(shuffled_image, shuffled_filter, subsample=stride, border_mode=pad)
 
     return conv.dimshuffle(1, 2, 3, 0)  # (n_flt, Z, Z, n_im)
+
+
+def create_mutual_one_v_all(all_responses, single_response):
+
+    mutual_responses,_ = theano.scan(fn=lambda X, Y: create_mutual_one_v_one(X, Y),
+                                     sequences=all_responses,
+                                     non_sequences=single_response,
+                                     n_steps=all_responses.shape[0]
+                                     )
+
+    return mutual_responses
+
+
+def create_mutual_one_v_one(resX, resY):
+
+    return 0.5*(resX+resY)
+
+
+def equal_elementwise(X, y):
+
+    g, _ = theano.scan(fn=lambda X, y: abs(X-y)<0.5,
+                       sequences=X,
+                       non_sequences=y,
+                       n_steps=X.shape[0]
+                       )
+    return g
+
+def orthogonal_elementwise(X, y, n):
+
+    g, _ = theano.scan(fn=lambda X, y, n: abs(abs(X - y)-n*0.5) < 0.5,
+                       sequences=X,
+                       non_sequences=[y, n],
+                       n_steps=X.shape[0]
+                       )
+    return g
